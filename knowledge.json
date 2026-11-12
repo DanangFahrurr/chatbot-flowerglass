@@ -1,0 +1,21 @@
+{
+  "keywords": {
+    "jam buka": "jam buka",
+    "alamat": "alamat",
+    "lokasi": "alamat",
+    "cara pesan": "cara pesan",
+    "order": "cara pesan",
+    "kontak": "kontak",
+    "link shopee": "shopee",
+    "official store": "shopee",
+    "original": "original"
+  },
+  "responses": {
+    "jam buka": "Customer service Flowerglass aktif setiap hari Senin - Sabtu pukul 09.00 - 21.00 WIB, dan Minggu pukul 10.00 - 18.00 WIB.",
+    "alamat": "Flowerglass adalah official store online. Anda dapat berbelanja melalui lapak Shopee resmi kami di https://shopee.co.id/flowerglass. Produk dikirim dari gudang resmi dengan packaging aman.",
+    "cara pesan": "Untuk pemesanan, silakan sebutkan nama produk yang diinginkan di chat ini, atau langsung order melalui lapak Shopee resmi kami di https://shopee.co.id/flowerglass.",
+    "kontak": "Informasi Kontak Flowerglass Official Store:\n *Toko Shopee:* https://shopee.co.id/flowerglass\n *Chat:* WhatsApp ini atau Chat Shopee\n *Jam Operasional:* Senin - Sabtu (09.00 - 21.00 WIB), Minggu (10.00 - 18.00 WIB)",
+    "shopee": "Lapak Shopee resmi Flowerglass: https://shopee.co.id/flowerglass. Semua produk yang kami rekomendasikan di chatbot ini bisa langsung Anda order via link tersebut.",
+    "original": "Seluruh produk Flowerglass yang kami jual adalah 100% original dari official store, dikirim langsung dari gudang resmi dengan kemasan aman dan tersegel."
+  }
+}

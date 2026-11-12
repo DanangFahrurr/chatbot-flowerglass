@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flowerglass Official Store</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <h1>🌸 Flowerglass Official Store</h1>
+    <p>Parfum & Body Care Premium — Wangi Tahan Lama</p>
+    <a href="https://shopee.co.id/flowerglass" target="_blank" class="cta">🛍️ Kunjungi Lapak Shopee</a>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h2>Katalog Produk</h2>
+      <div id="productsGrid" class="grid"></div>
+    </section>
+  </main>
+
+  <!-- Chat Widget -->
+  <div id="chatWidget" class="chat-widget">
+    <button id="chatToggle" class="chat-toggle">💬</button>
+    <div id="chatPanel" class="chat-panel hidden">
+      <div class="chat-header">
+        <strong>🌸 Flowerglass Assistant</strong>
+        <button id="chatClose">✕</button>
+      </div>
+      <div id="chatMessages" class="chat-messages">
+        <div class="msg bot">Halo! Saya asisten Flowerglass 🌸 Ada yang bisa dibantu seputar produk parfum & body care kami?</div>
+      </div>
+      <form id="chatForm" class="chat-form">
+        <input id="chatInput" type="text" placeholder="Tanya produk, harga, atau order..." required />
+        <button type="submit">Kirim</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
