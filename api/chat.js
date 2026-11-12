@@ -1,55 +1,67 @@
-// api/chat.js
 import Groq from "groq-sdk";
 import fs from "fs";
 import path from "path";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-// Load CSV sekali saat cold start
-function loadProducts() {
-  const csvPath = path.join(process.cwd(), "data", "products.csv");
-  const content = fs.readFileSync(csvPath, "utf-8");
-  const lines = content.trim().split(/\r?\n/);
-  const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-  return lines.slice(1).map(line => {
-    const cols = line.split(",").map(c => c.trim());
-    const row = {};
-    headers.forEach((h, i) => { row[h] = cols[i] || ""; });
-    return row;
-  });
-}
-
-// RAG sederhana: scoring keyword
-function buildContext(query, products) {
-  const q = query.toLowerCase();
-  const tokens = q.replace(/[^\w\s]/g, " ").split(/\s+/).filter(t => t.length > 2);
-  const scored = products.map(p => {
-    const text = `${p.nama} ${p.kategori} ${p.deskripsi}`.toLowerCase();
-    let score = 0;
-    for (const t of tokens) {
-      if (text.includes(t)) score += 1;
-      if (p.nama.toLowerCase().includes(t)) score += 3;
-    }
-    return { product: p, score };
-  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 8);
-
-  if (scored.length === 0) return "";
-  const rows = scored.map(x => {
-    const p = x.product;
-    const harga = Number(p.harga).toLocaleString("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
-    return `• ${p.nama} - ${harga}\n  ${p.deskripsi}`;
-  });
-  return `Katalog Flowerglass relevan:\n${rows.join("\n")}`;
-}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const { message, history = [] } = req.body;
-    const products = loadProducts();
-    const ragContext = buildContext(message, products);
 
+    // 1. Cek API Key
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey || !apiKey.startsWith("gsk_")) {
+      return res.status(500).json({ 
+        reply: "⚠️ API Key Groq belum dikonfigurasi dengan benar di Environment Variables Vercel." 
+      });
+    }
+
+    const groq = new Groq({ apiKey });
+
+    // 2. Baca katalog produk
+    // Di Vercel serverless, file dibaca relatif terhadap folder api/
+    const csvPath = path.join(process.cwd(), "public", "data", "products.csv");
+    let products = [];
+    try {
+      const content = fs.readFileSync(csvPath, "utf-8");
+      const lines = content.trim().split(/\r?\n/);
+      const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ''));
+      products = lines.slice(1).map(line => {
+        // Split dengan aman mempertimbangkan tanda kutip
+        const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+        const row = {};
+        headers.forEach((h, i) => { 
+          row[h] = (cols[i] || "").replace(/^"|"$/g, '').trim(); 
+        });
+        return row;
+      });
+    } catch (e) {
+      console.warn("Gagal baca CSV:", e.message);
+    }
+
+    // 3. Buat konteks RAG sederhana
+    const q = message.toLowerCase();
+    const tokens = q.replace(/[^\w\s]/g, " ").split(/\s+/).filter(t => t.length > 2);
+    
+    let relevant = products.map(p => {
+      const text = `${p.nama} ${p.kategori} ${p.deskripsi}`.toLowerCase();
+      let score = 0;
+      for (const t of tokens) {
+        if (text.includes(t)) score += 1;
+        if (p.nama.toLowerCase().includes(t)) score += 3;
+      }
+      return { p, score };
+    }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
+
+    let ragContext = "";
+    if (relevant.length > 0) {
+      ragContext = "Katalog Produk Relevan:\n" + relevant.map(x => {
+        const harga = Number(x.p.harga).toLocaleString("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+        return `• ${x.p.nama} - ${harga}\n  ${x.p.deskripsi}`;
+      }).join("\n");
+    }
+
+    // 4. Prompt Sistem
     const systemPrompt = `Anda adalah asisten Flowerglass Official Store, toko perawatan tubuh & parfum terpercaya.
 Jawab ramah, natural, to-the-point dalam Bahasa Indonesia.
 Jawab HANYA berdasarkan katalog di bawah. Jangan mengarang data.
@@ -64,16 +76,44 @@ ${ragContext || "(Tidak ada katalog relevan. Jika hanya sapaan, balas ramah.)"}`
       { role: "user", content: message }
     ];
 
-    const completion = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || "qwen/qwen3-32b",
-      messages,
-      max_tokens: 800
-    });
+    // 5. Panggil Groq dengan Model Cadangan (Fallback)
+    // Kita coba beberapa model yang biasanya tersedia di Groq Free Tier
+    const candidateModels = [
+      process.env.GROQ_MODEL || "llama3-8b-8192", 
+      "llama-3.1-8b-instant",
+      "mixtral-8x7b-32768",
+      "qwen/qwen3-32b"
+    ];
 
-    const reply = completion.choices[0]?.message?.content || "Maaf, saya belum bisa menjawab.";
+    let reply = null;
+    let lastError = null;
+
+    for (const model of candidateModels) {
+      try {
+        const completion = await groq.chat.completions.create({
+          model: model,
+          messages: messages,
+          max_tokens: 800,
+          temperature: 0.5
+        });
+        reply = completion.choices[0]?.message?.content;
+        if (reply) break; // Berhasil, keluar dari loop
+      } catch (err) {
+        console.warn(`Model ${model} gagal:`, err.message);
+        lastError = err;
+      }
+    }
+
+    if (!reply) {
+      throw new Error(`Semua model Groq gagal. Error terakhir: ${lastError?.message}`);
+    }
+
     res.status(200).json({ reply });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Chatbot error: " + err.message });
+    console.error("Fatal Error:", err);
+    res.status(500).json({ 
+      reply: "Maaf, sistem sedang sibuk atau API Key bermasalah. Mohon cek log Vercel." 
+    });
   }
 }
