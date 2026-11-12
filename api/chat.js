@@ -79,10 +79,10 @@ ${ragContext || "(Tidak ada katalog relevan. Jika hanya sapaan, balas ramah.)"}`
     // 5. Panggil Groq dengan Model Cadangan (Fallback)
     // Kita coba beberapa model yang biasanya tersedia di Groq Free Tier
     const candidateModels = [
-      process.env.GROQ_MODEL || "llama3-8b-8192", 
-      "llama-3.1-8b-instant",
-      "mixtral-8x7b-32768",
-      "qwen/qwen3-32b"
+      process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.8-13b",
+      "qwen/qwen3.8-7b"
     ];
 
     let reply = null;
