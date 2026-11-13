@@ -18,8 +18,7 @@ export default async function handler(req, res) {
 
     const groq = new Groq({ apiKey });
 
-    // 2. Baca katalog produk
-    // Di Vercel serverless, file dibaca relatif terhadap folder api/
+    // 2. Baca katalog produk (Path diperbaiki)
     const csvPath = path.join(process.cwd(), "public", "data", "products.csv");
     let products = [];
     try {
@@ -27,7 +26,6 @@ export default async function handler(req, res) {
       const lines = content.trim().split(/\r?\n/);
       const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ''));
       products = lines.slice(1).map(line => {
-        // Split dengan aman mempertimbangkan tanda kutip
         const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
         const row = {};
         headers.forEach((h, i) => { 
@@ -36,7 +34,7 @@ export default async function handler(req, res) {
         return row;
       });
     } catch (e) {
-      console.warn("Gagal baca CSV:", e.message);
+      console.warn("Gagal baca CSV di Vercel, pastikan file ada di public/data/", e.message);
     }
 
     // 3. Buat konteks RAG sederhana
@@ -76,13 +74,9 @@ ${ragContext || "(Tidak ada katalog relevan. Jika hanya sapaan, balas ramah.)"}`
       { role: "user", content: message }
     ];
 
-    // 5. Panggil Groq dengan Model Cadangan (Fallback)
-    // Kita coba beberapa model yang biasanya tersedia di Groq Free Tier
+
     const candidateModels = [
-      process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
-      "qwen/qwen3.8-27b",
-      "qwen/qwen3.8-13b",
-      "qwen/qwen3.8-7b"
+      "qwen/qwen3.8-27b"
     ];
 
     let reply = null;
@@ -97,7 +91,7 @@ ${ragContext || "(Tidak ada katalog relevan. Jika hanya sapaan, balas ramah.)"}`
           temperature: 0.5
         });
         reply = completion.choices[0]?.message?.content;
-        if (reply) break; // Berhasil, keluar dari loop
+        if (reply) break;
       } catch (err) {
         console.warn(`Model ${model} gagal:`, err.message);
         lastError = err;
@@ -105,7 +99,7 @@ ${ragContext || "(Tidak ada katalog relevan. Jika hanya sapaan, balas ramah.)"}`
     }
 
     if (!reply) {
-      throw new Error(`Semua model Groq gagal. Error terakhir: ${lastError?.message}`);
+      throw new Error(`Semua model Groq gagal. Error: ${lastError?.message}`);
     }
 
     res.status(200).json({ reply });
@@ -113,7 +107,7 @@ ${ragContext || "(Tidak ada katalog relevan. Jika hanya sapaan, balas ramah.)"}`
   } catch (err) {
     console.error("Fatal Error:", err);
     res.status(500).json({ 
-      reply: "Maaf, sistem sedang sibuk atau API Key bermasalah. Mohon cek log Vercel." 
+      reply: "Maaf, sistem sedang sibuk. Cek log Vercel untuk detail error." 
     });
   }
 }
